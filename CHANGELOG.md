@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+- ResoundSource Own Reverb (per-source reverb filter at the end of the chain, drier up close), ResoundLimiter on
+  the listener, ReverbSettings.ApplyTo(AudioReverbFilter), limiter toggle in the debug panel.
+
 ## 0.1.1
 - Corner lenience: rays fan out from both ends, a ray that gets round an edge counts for more (Corner Lenience),
   and nearby sounds are blocked less (Near Lenience Distance). Wider default ray spread (0.9 m) and a louder

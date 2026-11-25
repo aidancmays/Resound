@@ -1,6 +1,6 @@
 {
   "name": "com.aidancmays.resound",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "displayName": "Resound",
   "description": "Spatial audio for procedurally built levels, with nothing baked. Rooms and the doorways between them are registered at runtime, so a sound in another room is heard from the nearest doorway along the shortest way round instead of through the wall. Raycast occlusion muffles and quiets whatever is still in the way, and one reverb follows the listener, blending to the acoustics of the room they stand in (sized from the room's volume). Hand-placed rooms and doorways for fixed scenes, and an optional adapter that turns a Masonry layout's pieces, joined sockets and level links into rooms and doorways.",
   "unity": "6000.3",

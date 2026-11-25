@@ -92,6 +92,10 @@ namespace Resound
             GUILayout.Label($"Reverb: room {r.room:0} decay {r.decayTime:0.00}s reverb {r.reverb:0}");
             system.ReverbEnabled = GUILayout.Toggle(system.ReverbEnabled, "Reverb");
             system.RouteThroughDoorways = GUILayout.Toggle(system.RouteThroughDoorways, "Doorways");
+            if (system.Limiter != null)
+            {
+                system.Limiter.Bypass = !GUILayout.Toggle(!system.Limiter.Bypass, $"Limiter ({system.Limiter.Gain:0.00})");
+            }
             GUILayout.Label($"{dropTestSoundKey}: {(testSound == null ? "drop" : "remove")} test sound");
             scroll = GUILayout.BeginScrollView(scroll);
             foreach (var s in system.Sources)

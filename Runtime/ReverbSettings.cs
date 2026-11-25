@@ -103,5 +103,29 @@ namespace Resound
             zone.HFReference = HFReference;
             zone.LFReference = LFReference;
         }
+
+        /// <summary>
+        /// Writes these values into a reverb filter on one source (its own reverb, inside its effect chain).
+        /// <paramref name="wetOffset"/> is added to the room level, in mB (negative = drier, e.g. for close sounds).
+        /// </summary>
+        public void ApplyTo(AudioReverbFilter filter, float wetOffset = 0f)
+        {
+            if (filter.reverbPreset != AudioReverbPreset.User)
+                filter.reverbPreset = AudioReverbPreset.User;
+            filter.dryLevel = 0f;
+            filter.room = Mathf.Clamp(room + wetOffset, -10000f, 0f);
+            filter.roomHF = roomHF;
+            filter.roomLF = roomLF;
+            filter.decayTime = decayTime;
+            filter.decayHFRatio = decayHFRatio;
+            filter.reflectionsLevel = reflections;
+            filter.reflectionsDelay = reflectionsDelay;
+            filter.reverbLevel = reverb;
+            filter.reverbDelay = reverbDelay;
+            filter.diffusion = diffusion;
+            filter.density = density;
+            filter.hfReference = HFReference;
+            filter.lfReference = LFReference;
+        }
     }
 }

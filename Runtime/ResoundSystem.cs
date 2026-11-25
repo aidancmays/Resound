@@ -51,6 +51,10 @@ namespace Resound
         [Tooltip("Switch the listener reverb off entirely.")]
         [SerializeField] bool reverbEnabled = true;
 
+        [Header("Output")]
+        [Tooltip("Put a limiter on the listener so a loud moment (a voice up close plus its reverb) turns the mix down instead of clipping into distortion.")]
+        [SerializeField] bool limitOutput = true;
+
         static ResoundSystem instance;
         static bool quitting;
 
@@ -59,6 +63,7 @@ namespace Resound
         int cursor;
 
         AudioListener listener;
+        ResoundLimiter limiter;
         float nextListenerSearch;
         AudioReverbZone zone;
         ReverbSettings currentReverb = ReverbSettings.Off;
@@ -98,6 +103,9 @@ namespace Resound
         public float OcclusionDetour { get => occlusionDetour; set => occlusionDetour = Mathf.Max(0f, value); }
         public float ClosedDoorCost { get => closedDoorCost; set => closedDoorCost = Mathf.Max(0f, value); }
         public bool ReverbEnabled { get => reverbEnabled; set => reverbEnabled = value; }
+
+        /// <summary>The limiter on the listener, or null when Limit Output is off.</summary>
+        public ResoundLimiter Limiter => limiter;
 
         /// <summary>
         /// Acoustics where the listener is in no room, set by code (for example per level: open air on the surface,
@@ -174,6 +182,9 @@ namespace Resound
                 return;
             nextListenerSearch = Time.unscaledTime + 0.5f;
             listener = FindAnyObjectByType<AudioListener>();
+            limiter = null;
+            if (listener != null && limitOutput && !listener.TryGetComponent(out limiter))
+                limiter = listener.gameObject.AddComponent<ResoundLimiter>();
         }
 
         void UpdateReverb()

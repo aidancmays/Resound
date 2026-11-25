@@ -30,6 +30,12 @@ namespace Resound
         [SerializeField, Range(0.02f, 1f)] float smoothing = 0.15f;
         [Tooltip("Colliders under this transform never block the sound (usually the thing making it). Empty = this object's root.")]
         [SerializeField] Transform ignoreColliders;
+        [Tooltip("Give this sound its own copy of the room's reverb at the end of its effect chain, instead of the shared listener reverb. Use it for audio made in code (voice), and it's drier up close like a real voice.")]
+        [SerializeField] bool ownReverb;
+        [Tooltip("With Own Reverb: how much drier it is right next to you, in mB (fades to none at Dry Distance).")]
+        [SerializeField, Range(0f, 3000f)] float closeDryness = 1200f;
+        [Tooltip("With Own Reverb: distance at which it gets the room's full reverb, metres.")]
+        [SerializeField, Min(0.1f)] float dryDistance = 6f;
 
         const float Open = 22000f;
 
@@ -38,6 +44,8 @@ namespace Resound
         Vector3 localAnchor;
         Vector3 worldAnchor;
         bool rooted;
+        AudioReverbFilter reverbFilter;
+        float nextReverbUpdate;
 
         // Target from the last evaluation, and the eased current values.
         float targetCutoff = Open, cutoff = Open;
@@ -65,6 +73,35 @@ namespace Resound
         public float BlockedCutoff { get => blockedCutoff; set => blockedCutoff = Mathf.Clamp(value, 200f, Open); }
         public float BlockedGain { get => blockedGain; set => blockedGain = Mathf.Clamp01(value); }
 
+        /// <summary>Whether this sound carries its own reverb (see the inspector tooltip). Can be switched at runtime.</summary>
+        public bool OwnReverb
+        {
+            get => ownReverb;
+            set
+            {
+                ownReverb = value;
+                if (source == null)
+                    return;
+                if (value)
+                    SetUpOwnReverb();
+                else
+                {
+                    source.bypassReverbZones = false;
+                    if (reverbFilter != null)
+                        reverbFilter.enabled = false;
+                }
+            }
+        }
+
+        void SetUpOwnReverb()
+        {
+            source.bypassReverbZones = true;
+            if (reverbFilter == null && !TryGetComponent(out reverbFilter))
+                reverbFilter = gameObject.AddComponent<AudioReverbFilter>();
+            reverbFilter.enabled = true;
+            nextReverbUpdate = 0f;
+        }
+
         /// <summary>Colliders under this transform don't block the sound.</summary>
         public Transform IgnoreColliders { get => ignoreColliders; set => ignoreColliders = value; }
 
@@ -80,6 +117,8 @@ namespace Resound
             worldAnchor = transform.position;
             if (ignoreColliders == null)
                 ignoreColliders = transform.root;
+            if (ownReverb)
+                SetUpOwnReverb();
             if (throughDoorways && (GetComponent<Renderer>() != null || GetComponent<Collider>() != null))
             {
                 Debug.LogWarning($"[Resound] {name} has a renderer or collider, so it can't be moved to doorways; put the AudioSource on its own child. Routing is off for it.", this);
@@ -186,6 +225,21 @@ namespace Resound
             gain = Mathf.Lerp(gain, targetGain, k);
             offset = Vector3.Lerp(offset, targetOffset, k);
             Apply();
+            UpdateOwnReverb();
+        }
+
+        void UpdateOwnReverb()
+        {
+            if (!ownReverb || reverbFilter == null || Time.unscaledTime < nextReverbUpdate || !ResoundSystem.Exists)
+                return;
+            nextReverbUpdate = Time.unscaledTime + 0.1f;
+            var system = ResoundSystem.Instance;
+            if (system.Listener == null)
+                return;
+            float distance = Vector3.Distance(system.Listener.transform.position, transform.position);
+            float t = Mathf.Clamp01(distance / dryDistance);
+            var reverb = system.ReverbEnabled ? system.CurrentReverb : ReverbSettings.Off;
+            reverb.ApplyTo(reverbFilter, -closeDryness * (1f - t));
         }
 
         void Apply()
