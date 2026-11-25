@@ -1,0 +1,25 @@
+{
+    "name": "Resound.Masonry",
+    "rootNamespace": "Resound.Masonry",
+    "references": [
+        "Resound",
+        "Masonry"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "RESOUND_MASONRY"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.aidancmays.masonry",
+            "expression": "0.9.0",
+            "define": "RESOUND_MASONRY"
+        }
+    ],
+    "noEngineReferences": false
+}
