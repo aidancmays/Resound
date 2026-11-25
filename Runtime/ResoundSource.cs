@@ -23,7 +23,7 @@ namespace Resound
         [Tooltip("Low-pass cutoff when fully blocked, Hz.")]
         [SerializeField, Range(200f, 22000f)] float blockedCutoff = 900f;
         [Tooltip("Loudness when fully blocked (multiplies the volume).")]
-        [SerializeField, Range(0f, 1f)] float blockedGain = 0.35f;
+        [SerializeField, Range(0f, 1f)] float blockedGain = 0.4f;
         [Tooltip("Hear it from the doorway it reaches you through when it's in another room.")]
         [SerializeField] bool throughDoorways = true;
         [Tooltip("Seconds to ease into a new result (higher = smoother, slower to react).")]

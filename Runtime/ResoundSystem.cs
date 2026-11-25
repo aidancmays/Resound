@@ -23,9 +23,13 @@ namespace Resound
         [Tooltip("Rays cast from the listener to each source (more = smoother as things pass in front, but costs more).")]
         [SerializeField, Range(1, 9)] int raysPerSource = 5;
         [Tooltip("How far apart the extra rays land around the source, metres.")]
-        [SerializeField, Min(0f)] float raySpread = 0.6f;
+        [SerializeField, Min(0f)] float raySpread = 0.9f;
         [Tooltip("How much each wall a ray passes through blocks it (0..1). Two walls block more than one.")]
         [SerializeField, Range(0f, 1f)] float perWall = 0.65f;
+        [Tooltip("How much sound bends round corners. 0 = only the average of the rays counts; 1 = if any ray gets round the edge, the sound is heard clearly.")]
+        [SerializeField, Range(0f, 1f)] float cornerLenience = 0.6f;
+        [Tooltip("Within this many metres, blocking counts for less (sound bends round nearby edges much more than far ones).")]
+        [SerializeField, Min(0f)] float nearLenienceDistance = 8f;
 
         [Header("Routing")]
         [Tooltip("Hear sounds in other rooms from the nearest doorway along the shortest way round, when that's shorter than the muffled way through the walls.")]
@@ -88,6 +92,8 @@ namespace Resound
         public int RaysPerSource { get => raysPerSource; set => raysPerSource = Mathf.Clamp(value, 1, 9); }
         public float RaySpread { get => raySpread; set => raySpread = Mathf.Max(0f, value); }
         public float PerWall { get => perWall; set => perWall = Mathf.Clamp01(value); }
+        public float CornerLenience { get => cornerLenience; set => cornerLenience = Mathf.Clamp01(value); }
+        public float NearLenienceDistance { get => nearLenienceDistance; set => nearLenienceDistance = Mathf.Max(0f, value); }
         public bool RouteThroughDoorways { get => routeThroughDoorways; set => routeThroughDoorways = value; }
         public float OcclusionDetour { get => occlusionDetour; set => occlusionDetour = Mathf.Max(0f, value); }
         public float ClosedDoorCost { get => closedDoorCost; set => closedDoorCost = Mathf.Max(0f, value); }
@@ -209,7 +215,10 @@ namespace Resound
 
         /// <summary>
         /// How blocked the straight line from <paramref name="from"/> to <paramref name="to"/> is, 0 (clear) to 1
-        /// (solid), from several rays spread around <paramref name="to"/>. Colliders under either ignore root don't count.
+        /// (solid). Several rays fan out around both ends, so a sound just round a corner still has some rays that
+        /// get past the edge; <see cref="CornerLenience"/> lets those count for more than their share, and close
+        /// sounds (within <see cref="NearLenienceDistance"/>) are blocked less. Colliders under either ignore root
+        /// don't count.
         /// </summary>
         public float Occlusion(Vector3 from, Vector3 to, Transform ignoreA = null, Transform ignoreB = null)
         {
@@ -225,14 +234,17 @@ namespace Resound
             var up = Vector3.Cross(forward, right);
 
             float total = 0f;
+            float least = 1f;
             int rays = Mathf.Clamp(raysPerSource, 1, RayPattern.Length);
             for (int r = 0; r < rays; r++)
             {
                 var offset = (right * RayPattern[r].x + up * RayPattern[r].y) * raySpread;
+                // Spread both ends (the listener's end a little less), like sound wrapping round an edge.
+                var start = from + offset * 0.5f;
                 var target = to + offset;
-                var dir = target - from;
+                var dir = target - start;
                 float len = dir.magnitude;
-                int n = Physics.RaycastNonAlloc(from, dir / len, hits, len, occluders, QueryTriggerInteraction.Ignore);
+                int n = Physics.RaycastNonAlloc(start, dir / len, hits, len, occluders, QueryTriggerInteraction.Ignore);
                 int walls = 0;
                 for (int i = 0; i < n; i++)
                 {
@@ -241,9 +253,14 @@ namespace Resound
                         continue;
                     walls++;
                 }
-                total += 1f - Mathf.Pow(1f - perWall, walls);
+                float blocked = 1f - Mathf.Pow(1f - perWall, walls);
+                total += blocked;
+                least = Mathf.Min(least, blocked);
             }
-            return total / rays;
+            float occ = Mathf.Lerp(total / rays, least, cornerLenience);
+            if (nearLenienceDistance > 0f)
+                occ *= Mathf.Lerp(0.5f, 1f, Mathf.Clamp01(distance / nearLenienceDistance));
+            return occ;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
