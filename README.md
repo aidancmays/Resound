@@ -20,6 +20,8 @@ Spatial audio for procedurally built levels, with nothing baked.
    Masonry layout add `MasonryRooms` next to the `LayoutBuilder` (pieces become rooms, joined sockets and level
    links become doorways; pick acoustics by module type or with `Configure`).
 4. `ResoundOneShots.Play(clip, position)` for fire-and-forget sounds with the same treatment.
+5. `ResoundSystem.Instance.Propagate(listener, null, sound)` asks how a sound reaches any other point (distance
+   travelled, occlusion, doorway routing), for things other than the player that hear, like a monster's ears.
 
 `ResoundDebugPanel`: F7 shows rooms, reverb and each source's occlusion; F6 (while shown) drops a looping test
 sound where you stand.

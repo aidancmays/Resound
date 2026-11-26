@@ -57,6 +57,15 @@ namespace Resound
         /// <summary>How blocked the straight line to the listener was at the last update, 0..1.</summary>
         public float LastOcclusion { get; private set; }
 
+        /// <summary>
+        /// Loudness when fully blocked (multiplies the volume). <see cref="Propagation.GainFor"/> with this gives the
+        /// gain the source is heading for.
+        /// </summary>
+        public float BlockedGainValue => blockedGain;
+
+        /// <summary>The gain occlusion is applying to the audio right now (1 = untouched).</summary>
+        public float AppliedGain => gain;
+
         /// <summary>True when the sound is currently heard through a doorway.</summary>
         public bool Routed { get; private set; }
 
@@ -179,40 +188,14 @@ namespace Resound
                 return;
 
             var listenerRoot = system.Listener != null ? system.Listener.transform.root : null;
-            float occ = occlusion ? system.Occlusion(listener, anchor, ignoreColliders, listenerRoot) : 0f;
-            LastOcclusion = occ;
-
-            Routed = false;
-            Hops = 0;
-            targetOffset = Vector3.zero;
-            float muffle = occ;
-            float quiet = occ;
-
-            var graph = ResoundSystem.Graph;
-            if (throughDoorways && system.RouteThroughDoorways && graph != null && occ > 0.05f && listenerRoom != null)
-            {
-                var sourceRoom = graph.Find(anchor);
-                if (sourceRoom != null && sourceRoom != listenerRoom &&
-                    graph.FindPath(listener, listenerRoom, anchor, sourceRoom, out var path, system.ClosedDoorCost))
-                {
-                    float direct = distance + occ * system.OcclusionDetour;
-                    float around = path.length + (1f - path.openness) * system.ClosedDoorCost;
-                    if (around < direct)
-                    {
-                        Routed = true;
-                        Hops = path.hops;
-                        var toDoor = path.nearestPortal - listener;
-                        if (toDoor.sqrMagnitude < 1e-4f)
-                            toDoor = anchor - listener;
-                        var heard = listener + toDoor.normalized * path.length;
-                        targetOffset = heard - anchor;
-                        // Anything still in the way between you and the doorway counts too.
-                        float doorOcc = occlusion ? system.Occlusion(listener, path.nearestPortal, ignoreColliders, listenerRoot) : 0f;
-                        muffle = Mathf.Max(path.muffle, doorOcc);
-                        quiet = Mathf.Max(1f - path.openness, doorOcc) * 0.8f;
-                    }
-                }
-            }
+            var heard = system.Propagate(listener, listenerRoom, anchor, ignoreColliders, listenerRoot, occlusion,
+                throughDoorways);
+            LastOcclusion = heard.occlusion;
+            Routed = heard.routed;
+            Hops = heard.hops;
+            targetOffset = heard.routed ? heard.heardFrom - anchor : Vector3.zero;
+            float muffle = heard.muffle;
+            float quiet = heard.quiet;
 
             targetCutoff = Mathf.Exp(Mathf.Lerp(Mathf.Log(Open), Mathf.Log(blockedCutoff), Mathf.Clamp01(muffle)));
             targetGain = Mathf.Lerp(1f, blockedGain, Mathf.Clamp01(quiet));

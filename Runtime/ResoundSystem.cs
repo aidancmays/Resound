@@ -274,11 +274,83 @@ namespace Resound
             return occ;
         }
 
+        /// <summary>
+        /// How a sound at <paramref name="sound"/> reaches a listener at <paramref name="listener"/>: the same occlusion
+        /// and doorway routing a <see cref="ResoundSource"/> gets for the scene's AudioListener, for any point. Use it
+        /// to let something other than the player hear the world the way the player does (a monster's ears).
+        /// <paramref name="listenerRoom"/> may be null (it is looked up); colliders under either ignore root don't
+        /// block.
+        /// </summary>
+        public Propagation Propagate(Vector3 listener, Room listenerRoom, Vector3 sound, Transform ignoreSound = null,
+            Transform ignoreListener = null, bool occlusion = true, bool throughDoorways = true)
+        {
+            float distance = Vector3.Distance(listener, sound);
+            float occ = occlusion ? Occlusion(listener, sound, ignoreSound, ignoreListener) : 0f;
+            var result = new Propagation
+            {
+                distance = distance,
+                heardFrom = sound,
+                occlusion = occ,
+                muffle = occ,
+                quiet = occ,
+            };
+
+            if (!throughDoorways || !routeThroughDoorways || occ <= 0.05f || graph.Rooms.Count == 0)
+                return result;
+            if (listenerRoom == null)
+                listenerRoom = graph.Find(listener);
+            if (listenerRoom == null)
+                return result;
+            var soundRoom = graph.Find(sound);
+            if (soundRoom == null || soundRoom == listenerRoom ||
+                !graph.FindPath(listener, listenerRoom, sound, soundRoom, out var path, closedDoorCost))
+                return result;
+
+            float direct = distance + occ * occlusionDetour;
+            float around = path.length + (1f - path.openness) * closedDoorCost;
+            if (around >= direct)
+                return result;
+
+            var toDoor = path.nearestPortal - listener;
+            if (toDoor.sqrMagnitude < 1e-4f)
+                toDoor = sound - listener;
+            // Anything still in the way between the listener and the doorway counts too.
+            float doorOcc = occlusion ? Occlusion(listener, path.nearestPortal, ignoreSound, ignoreListener) : 0f;
+            result.routed = true;
+            result.hops = path.hops;
+            result.distance = path.length;
+            result.heardFrom = listener + toDoor.normalized * path.length;
+            result.muffle = Mathf.Max(path.muffle, doorOcc);
+            result.quiet = Mathf.Max(1f - path.openness, doorOcc) * 0.8f;
+            return result;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
         {
             instance = null;
             quitting = false;
         }
+    }
+
+    /// <summary>How a sound reaches a listener (<see cref="ResoundSystem.Propagate"/>).</summary>
+    public struct Propagation
+    {
+        /// <summary>Metres the sound travels: straight, or the way round through doorways when routed.</summary>
+        public float distance;
+        /// <summary>Where the listener hears it from (the true spot, or along the line to the first doorway).</summary>
+        public Vector3 heardFrom;
+        /// <summary>How blocked the straight line is, 0..1.</summary>
+        public float occlusion;
+        /// <summary>How dulled it is, 0..1 (drives the low-pass).</summary>
+        public float muffle;
+        /// <summary>How much quieter it is, 0..1 (0 = full, 1 = down to a source's Blocked Gain).</summary>
+        public float quiet;
+        /// <summary>True when it is heard through doorways rather than through the walls.</summary>
+        public bool routed;
+        public int hops;
+
+        /// <summary>The gain this works out to for a source with this Blocked Gain (1 = untouched).</summary>
+        public float GainFor(float blockedGain) => Mathf.Lerp(1f, blockedGain, Mathf.Clamp01(quiet));
     }
 }

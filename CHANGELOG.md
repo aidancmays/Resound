@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0
+- ResoundSystem.Propagate: the occlusion and doorway routing a source gets, for any listener point (a monster
+  hearing the world the way the player does). ResoundSource uses it, so nothing changes for the player's ears.
+  ResoundSource.AppliedGain and BlockedGainValue.
+
 ## 0.1.2
 - ResoundSource Own Reverb (per-source reverb filter at the end of the chain, drier up close), ResoundLimiter on
   the listener, ReverbSettings.ApplyTo(AudioReverbFilter), limiter toggle in the debug panel.
